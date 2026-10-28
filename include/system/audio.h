@@ -257,6 +257,24 @@ typedef enum {
     AUDIO_FORMAT_OPUS                = 0x08000000UL,
     AUDIO_FORMAT_AC3                 = 0x09000000UL,
     AUDIO_FORMAT_E_AC3               = 0x0A000000UL,
+
+#ifdef QCOM_HARDWARE
+    AUDIO_FORMAT_EVRC                = 0x10000000UL,
+    AUDIO_FORMAT_QCELP               = 0x11000000UL,
+    AUDIO_FORMAT_DTS                 = 0x12000000UL,
+    AUDIO_FORMAT_WMA                 = 0x13000000UL,
+    AUDIO_FORMAT_WMA_PRO             = 0x14000000UL,
+    AUDIO_FORMAT_AAC_ADIF            = 0x15000000UL,
+    AUDIO_FORMAT_EVRCB               = 0x16000000UL,
+    AUDIO_FORMAT_EVRCWB              = 0x17000000UL,
+    AUDIO_FORMAT_DTS_LBR             = 0x18000000UL,
+    AUDIO_FORMAT_AMR_WB_PLUS         = 0x19000000UL,
+    AUDIO_FORMAT_MP2                 = 0x1A000000UL,
+    AUDIO_FORMAT_EVRCNW              = 0x1B000000UL,
+#endif
+    AUDIO_FORMAT_PCM_OFFLOAD         = 0x1C000000UL,
+    AUDIO_FORMAT_FLAC                = 0x1D000000UL,
+    AUDIO_FORMAT_E_AC3_JOC           = 0x1E000000UL,
     AUDIO_FORMAT_MAIN_MASK           = 0xFF000000UL,
     AUDIO_FORMAT_SUB_MASK            = 0x00FFFFFFUL,
 
@@ -295,6 +313,11 @@ typedef enum {
                                         AUDIO_FORMAT_AAC_SUB_HE_V2),
     AUDIO_FORMAT_AAC_ELD             = (AUDIO_FORMAT_AAC |
                                         AUDIO_FORMAT_AAC_SUB_ELD),
+    /*Offload PCM formats*/
+    AUDIO_FORMAT_PCM_16_BIT_OFFLOAD  = (AUDIO_FORMAT_PCM_OFFLOAD |
+                                        AUDIO_FORMAT_PCM_SUB_16_BIT),
+    AUDIO_FORMAT_PCM_24_BIT_OFFLOAD  = (AUDIO_FORMAT_PCM_OFFLOAD |
+                                        AUDIO_FORMAT_PCM_SUB_8_24_BIT),
 } audio_format_t;
 
 /* For the channel mask for position assignment representation */
@@ -594,6 +617,10 @@ enum {
     AUDIO_DEVICE_OUT_AUX_LINE                  = 0x200000,
     /* limited-output speaker device for acoustic safety */
     AUDIO_DEVICE_OUT_SPEAKER_SAFE              = 0x400000,
+#ifdef QCOM_HARDWARE
+    AUDIO_DEVICE_OUT_FM_TX                     = 0x1000000,
+    AUDIO_DEVICE_OUT_PROXY                     = 0x2000000,
+#endif
     AUDIO_DEVICE_OUT_DEFAULT                   = AUDIO_DEVICE_BIT_DEFAULT,
     AUDIO_DEVICE_OUT_ALL      = (AUDIO_DEVICE_OUT_EARPIECE |
                                  AUDIO_DEVICE_OUT_SPEAKER |
@@ -618,6 +645,10 @@ enum {
                                  AUDIO_DEVICE_OUT_FM |
                                  AUDIO_DEVICE_OUT_AUX_LINE |
                                  AUDIO_DEVICE_OUT_SPEAKER_SAFE |
+#ifdef QCOM_HARDWARE
+                                 AUDIO_DEVICE_OUT_FM_TX |
+                                 AUDIO_DEVICE_OUT_PROXY |
+#endif
                                  AUDIO_DEVICE_OUT_DEFAULT),
     AUDIO_DEVICE_OUT_ALL_A2DP = (AUDIO_DEVICE_OUT_BLUETOOTH_A2DP |
                                  AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES |
@@ -708,7 +739,17 @@ typedef enum {
     AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD = 0x10,  // offload playback of compressed
                                                 // streams to hardware codec
     AUDIO_OUTPUT_FLAG_NON_BLOCKING = 0x20, // use non-blocking write
-    AUDIO_OUTPUT_FLAG_HW_AV_SYNC = 0x40 // output uses a hardware A/V synchronization source
+    AUDIO_OUTPUT_FLAG_HW_AV_SYNC = 0x40, // output uses a hardware A/V synchronization source
+#ifdef QCOM_HARDWARE
+    AUDIO_OUTPUT_FLAG_VOIP_RX = 0x1000,  // use this flag in combination with DIRECT to
+                                         // indicate HAL to activate EC & NS
+                                         // path for VOIP calls
+    AUDIO_OUTPUT_FLAG_INCALL_MUSIC = 0x2000, //use this flag for incall music delivery
+    // flag for HDMI compressed passthrough
+    AUDIO_OUTPUT_FLAG_COMPRESS_PASSTHROUGH = 0x4000,
+    AUDIO_OUTPUT_FLAG_LPA = 0x8000,
+    AUDIO_OUTPUT_FLAG_TUNNEL = 0x10000
+#endif
 } audio_output_flags_t;
 
 /* The audio input flags are analogous to audio output flags.
@@ -738,6 +779,10 @@ typedef struct {
     int64_t duration_us;                // duration in microseconds, -1 if unknown
     bool has_video;                     // true if stream is tied to a video stream
     bool is_streaming;                  // true if streaming, false if local playback
+#ifdef QCOM_HARDWARE
+    uint16_t bit_width;
+    bool use_small_bufs;
+#endif
 } audio_offload_info_t;
 
 #define AUDIO_MAKE_OFFLOAD_INFO_VERSION(maj,min) \
@@ -756,7 +801,11 @@ static const audio_offload_info_t AUDIO_INFO_INITIALIZER = {
     bit_rate: 0,
     duration_us: 0,
     has_video: false,
-    is_streaming: false
+    is_streaming: false,
+#ifdef QCOM_HARDWARE
+    bit_width: 16,
+    use_small_bufs: false,
+#endif
 };
 
 /* common audio stream configuration parameters
@@ -786,7 +835,11 @@ static const audio_config_t AUDIO_CONFIG_INITIALIZER = {
         bit_rate: 0,
         duration_us: 0,
         has_video: false,
-        is_streaming: false
+        is_streaming: false,
+#ifdef QCOM_HARDWARE
+        bit_width: 16,
+        use_small_bufs: false,
+#endif
     },
     frame_count: 0,
 };
@@ -1313,6 +1366,26 @@ static inline bool audio_is_valid_format(audio_format_t format)
     case AUDIO_FORMAT_OPUS:
     case AUDIO_FORMAT_AC3:
     case AUDIO_FORMAT_E_AC3:
+#ifdef QCOM_HARDWARE
+    case AUDIO_FORMAT_QCELP:
+    case AUDIO_FORMAT_EVRC:
+    case AUDIO_FORMAT_EVRCB:
+    case AUDIO_FORMAT_EVRCWB:
+    case AUDIO_FORMAT_AAC_ADIF:
+    case AUDIO_FORMAT_WMA:
+    case AUDIO_FORMAT_WMA_PRO:
+    case AUDIO_FORMAT_DTS:
+    case AUDIO_FORMAT_DTS_LBR:
+    case AUDIO_FORMAT_AMR_WB_PLUS:
+    case AUDIO_FORMAT_MP2:
+    case AUDIO_FORMAT_EVRCNW:
+    case AUDIO_FORMAT_FLAC:
+    case AUDIO_FORMAT_E_AC3_JOC:
+        return true;
+    case AUDIO_FORMAT_PCM_OFFLOAD:
+        return format == AUDIO_FORMAT_PCM_16_BIT_OFFLOAD ||
+                format == AUDIO_FORMAT_PCM_24_BIT_OFFLOAD;
+#endif
         return true;
     default:
         return false;
@@ -1324,6 +1397,15 @@ static inline bool audio_is_linear_pcm(audio_format_t format)
     return ((format & AUDIO_FORMAT_MAIN_MASK) == AUDIO_FORMAT_PCM);
 }
 
+static inline bool audio_is_offload_pcm(audio_format_t format)
+{
+#ifdef QCOM_HARDWARE
+    return ((format & AUDIO_FORMAT_MAIN_MASK) == AUDIO_FORMAT_PCM_OFFLOAD);
+#else
+    return false;
+#endif
+}
+
 static inline size_t audio_bytes_per_sample(audio_format_t format)
 {
     size_t size = 0;
@@ -1331,12 +1413,14 @@ static inline size_t audio_bytes_per_sample(audio_format_t format)
     switch (format) {
     case AUDIO_FORMAT_PCM_32_BIT:
     case AUDIO_FORMAT_PCM_8_24_BIT:
+    case AUDIO_FORMAT_PCM_24_BIT_OFFLOAD:
         size = sizeof(int32_t);
         break;
     case AUDIO_FORMAT_PCM_24_BIT_PACKED:
         size = sizeof(uint8_t) * 3;
         break;
     case AUDIO_FORMAT_PCM_16_BIT:
+    case AUDIO_FORMAT_PCM_16_BIT_OFFLOAD:
         size = sizeof(int16_t);
         break;
     case AUDIO_FORMAT_PCM_8_BIT:
