@@ -54,8 +54,10 @@
 #define FIRMWARE_DIR1   "/etc/firmware"
 #define FIRMWARE_DIR2   "/vendor/firmware"
 #define FIRMWARE_DIR3   "/firmware/image"
+#define DEVICES_BASE    "/devices/soc.0"
 
 extern struct selabel_handle *sehandle;
+extern char bootdevice[32];
 
 static int device_fd = -1;
 
@@ -168,7 +170,16 @@ void fixup_sys_perms(const char *upath)
     }
     if (access(buf, F_OK) == 0) {
         INFO("restorecon_recursive: %s\n", buf);
+#ifdef _PLATFORM_BASE
+        // Descendants are relabeled on their own events; do not repeatedly
+        // walk the entire MSM8909 tree while handling its parent event.
+        if (!strcmp(upath, DEVICES_BASE))
+            restorecon(buf);
+        else
+            restorecon_recursive(buf);
+#else
         restorecon_recursive(buf);
+#endif
     }
 }
 
@@ -273,11 +284,18 @@ static void add_platform_device(const char *path)
     struct platform_node *bus;
     const char *name = path;
 
+#ifdef _PLATFORM_BASE
+    if (!strncmp(path, _PLATFORM_BASE, strlen(_PLATFORM_BASE)))
+        name += strlen(_PLATFORM_BASE);
+    else
+        return;
+#else
     if (!strncmp(path, "/devices/", 9)) {
         name += 9;
         if (!strncmp(name, "platform/", 9))
             name += 9;
     }
+#endif
 
     list_for_each_reverse(node, &platform_names) {
         bus = node_to_item(node, struct platform_node, list);
@@ -506,6 +524,7 @@ static char **get_block_device_symlinks(struct uevent *uevent)
     char *p;
     unsigned int size;
     struct stat info;
+    int is_bootdevice;
 
     pdev = find_platform_device(uevent->path);
     if (pdev) {
@@ -518,14 +537,18 @@ static char **get_block_device_symlinks(struct uevent *uevent)
         return NULL;
     }
 
-    char **links = malloc(sizeof(char *) * 4);
+    char **links = malloc(sizeof(char *) * 6);
     if (!links)
         return NULL;
-    memset(links, 0, sizeof(char *) * 4);
+    memset(links, 0, sizeof(char *) * 6);
 
     INFO("found %s device %s\n", type, device);
 
     snprintf(link_path, sizeof(link_path), "/dev/block/%s/%s", type, device);
+    is_bootdevice = bootdevice[0] && !strcmp(device, bootdevice);
+    if (is_bootdevice)
+        make_link_init(link_path, "/dev/block/bootdevice");
+
 
     if (uevent->partition_name) {
         p = strdup(uevent->partition_name);
@@ -536,11 +559,24 @@ static char **get_block_device_symlinks(struct uevent *uevent)
             link_num++;
         else
             links[link_num] = NULL;
+        if (is_bootdevice) {
+            if (asprintf(&links[link_num], "/dev/block/bootdevice/by-name/%s", p) > 0)
+                link_num++;
+            else
+                links[link_num] = NULL;
+        }
         free(p);
     }
 
     if (uevent->partition_num >= 0) {
         if (asprintf(&links[link_num], "%s/by-num/p%d", link_path, uevent->partition_num) > 0)
+            link_num++;
+        else
+            links[link_num] = NULL;
+    }
+
+    if (is_bootdevice && uevent->partition_num >= 0) {
+        if (asprintf(&links[link_num], "/dev/block/bootdevice/by-num/p%d", uevent->partition_num) > 0)
             link_num++;
         else
             links[link_num] = NULL;

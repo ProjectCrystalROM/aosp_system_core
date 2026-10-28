@@ -18,6 +18,9 @@ LOCAL_SRC_FILES:= \
 	watchdogd.c
 
 LOCAL_CFLAGS    += -Wno-unused-parameter
+ifneq ($(strip $(TARGET_PLATFORM_DEVICE_BASE)),)
+LOCAL_CFLAGS += -D_PLATFORM_BASE="\"$(TARGET_PLATFORM_DEVICE_BASE)\""
+endif
 
 ifeq ($(strip $(INIT_BOOTCHART)),true)
 LOCAL_SRC_FILES += bootchart.c
