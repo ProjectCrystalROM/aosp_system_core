@@ -93,6 +93,9 @@
 #define AID_NET_BW_STATS  3006  /* read bandwidth statistics */
 #define AID_NET_BW_ACCT   3007  /* change bandwidth statistics accounting */
 #define AID_NET_BT_STACK  3008  /* bluetooth: access config files */
+#ifdef QCOM_HARDWARE
+#define AID_QCOM_DIAG     3009  /* Qualcomm /dev/diag; matches MS330 stock/CM12 */
+#endif
 
 #define AID_EVERYBODY     9997  /* shared between all apps in the same profile */
 #define AID_MISC          9998  /* access to misc storage */
@@ -169,6 +172,9 @@ static const struct android_id_info android_ids[] = {
     { "net_bw_stats",  AID_NET_BW_STATS, },
     { "net_bw_acct",   AID_NET_BW_ACCT, },
     { "net_bt_stack",  AID_NET_BT_STACK, },
+#ifdef QCOM_HARDWARE
+    { "qcom_diag",     AID_QCOM_DIAG, },
+#endif
 
     { "everybody",     AID_EVERYBODY, },
     { "misc",          AID_MISC, },
