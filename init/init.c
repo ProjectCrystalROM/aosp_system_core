@@ -909,7 +909,7 @@ static bool selinux_is_disabled(void)
 
 static bool selinux_is_enforcing(void)
 {
-#ifdef ALLOW_DISABLE_SELINUX
+#if defined(ALLOW_DISABLE_SELINUX) || defined(M1_ALLOW_PERMISSIVE_SELINUX)
     char tmp[PROP_VALUE_MAX];
 
     if (property_get("ro.boot.selinux", tmp) == 0) {

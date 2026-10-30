@@ -31,6 +31,16 @@ ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
 LOCAL_CFLAGS += -DALLOW_LOCAL_PROP_OVERRIDE=1 -DALLOW_DISABLE_SELINUX=1
 endif
 
+# Explicit MS330 user-to-enforcing transition: permit permissive policy mode
+# without enabling SELinux-disabled boot or local.prop overrides on user builds.
+ifeq ($(TARGET_PRODUCT),aosp_m1)
+ifeq ($(TARGET_BUILD_VARIANT),user)
+ifeq ($(M1_SELINUX_PERMISSIVE),true)
+LOCAL_CFLAGS += -DM1_ALLOW_PERMISSIVE_SELINUX=1
+endif
+endif
+endif
+
 # Enable ueventd logging
 #LOCAL_CFLAGS += -DLOG_UEVENTS=1
 
